@@ -114,8 +114,6 @@
       var self = this, stores, deferred, args;
       args = Array.prototype.slice.call(arguments);
       
-      this.listener.emit.apply(this.listener, ['dispatch'].concat(args));
-      
       /* Stores are key-value pairs. Collect store instances into an array. */
       stores = (function () {
         var stores = [], store;
@@ -138,6 +136,10 @@
       for (var storeName in self.stores) {
         self.stores[storeName].dispatchAction.apply(self.stores[storeName], args);
       }
+      
+      // dispatch other listeners after stores as we usually want to have
+      // their current state
+      this.listener.emit.apply(this.listener, ['dispatch'].concat(args));
 
       // `dispatch` returns deferred object you can just use **promise**
       // for dispatching: `dispatch(..).then(..)`.
