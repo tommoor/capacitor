@@ -1,4 +1,4 @@
-/*! delorean - v0.8.7 - 2015-02-24 */
+/*! delorean - v0.9.6-0 - 2015-08-24 */
 (function (DeLorean) {
   'use strict';
 
@@ -33,16 +33,11 @@
 
   // `__findDispatcher` is a private function for **React components**.
   function __findDispatcher(view) {
-     // Provide a useful error message if no dispatcher is found in the chain
-    if (view == null) {
-      throw 'No dispatcher found. The DeLoreanJS mixin requires a "dispatcher" property to be passed to a component, or one of it\'s ancestors.';
+     // Provide a useful error message if no dispatcher is found
+    if (DeLorean.dispatcher == null) {
+      throw 'No dispatcher found. The DeLoreanJS mixin requires a "dispatcher" has been created using Flux.createDispatcher.';
     }
-    /* `view` should be a component instance. If a component don't have
-        any dispatcher, it tries to find a dispatcher from the parents. */
-    if (!view.props.dispatcher) {
-      return __findDispatcher(view._owner);
-    }
-    return view.props.dispatcher;
+    return DeLorean.dispatcher;
   }
 
   // `__clone` creates a deep copy of an object.
@@ -101,6 +96,7 @@
       var self = this;
       // `DeLorean.EventEmitter` is `require('events').EventEmitter` by default.
       // you can change it using `DeLorean.Flux.define('EventEmitter', AnotherEventEmitter)`
+      DeLorean.EventEmitter.defaultMaxListeners = 50;
       this.listener = new DeLorean.EventEmitter();
       this.stores = stores;
 
@@ -111,10 +107,12 @@
     }
 
     // `dispatch` method dispatch the event with `data` (or **payload**)
-    Dispatcher.prototype.dispatch = function (actionName, data) {
-      var self = this, stores, deferred;
+    Dispatcher.prototype.dispatch = function () {
+      var self = this, stores, deferred, args;
+      args = Array.prototype.slice.call(arguments);
 
-      this.listener.emit('dispatch', actionName, data);
+      this.listener.emit.apply(this.listener, ['dispatch'].concat(args));
+
       /* Stores are key-value pairs. Collect store instances into an array. */
       stores = (function () {
         var stores = [], store;
@@ -131,11 +129,11 @@
 
       // Store instances should wait for finish. So you can know if all the
       // stores are dispatched properly.
-      deferred = this.waitFor(stores, actionName);
+      deferred = this.waitFor(stores, args[0]);
 
       /* Payload should send to all related stores. */
       for (var storeName in self.stores) {
-        self.stores[storeName].dispatchAction(actionName, data);
+        self.stores[storeName].dispatchAction.apply(self.stores[storeName], args);
       }
 
       // `dispatch` returns deferred object you can just use **promise**
@@ -155,10 +153,16 @@
         /* `__promiseGenerator` generates a simple promise that resolves itself when
             related store is changed. */
         function __promiseGenerator(store) {
-          // `DeLorean.Promise` is `require('es6-promise').Promise` by default.
-          // you can change it using `DeLorean.Flux.define('Promise', AnotherPromise)`
+          // resolve on change
+          // reject on rollback
+          // cleanup_{actionName} will be fired after the action handler (in store.dispatchAction) to cleanup unused events
           return new DeLorean.Promise(function (resolve, reject) {
             store.listener.once('change', resolve);
+            store.listener.once('rollback', reject);
+            store.listener.once('cleanup_' + actionName, function () {
+              store.listener.removeListener('change', resolve);
+              store.listener.removeListener('rollback', reject);
+            });
           });
         }
 
@@ -285,7 +289,7 @@
 
         if (typeof definition.calculate === 'function') {
           this.state[__generateOriginalName(key)] = value;
-          this.state[key] = definition.calculate.call(this.state, value);
+          this.state[key] = definition.calculate.call(this, value);
         }
       } else {
         // Scheme **must** include the key you wanted to set.
@@ -365,7 +369,7 @@
             }
 
             this.state[__generateOriginalName(keyName)] = definition.default;
-            this.state[keyName] = definition.calculate.call(this.state, definition.default);
+            this.state[keyName] = definition.calculate.call(this, definition.default);
             changedProps.push(keyName);
           }
         }
@@ -392,7 +396,7 @@
           }
           // Calculate this value
           definition = scheme[dep];
-          this.state[dep] = definition.calculate.call(this.state,
+          this.state[dep] = definition.calculate.call(this,
                             this.state[__generateOriginalName(dep)] || definition.default);
 
           // Make sure this does not get calculated again in this change batch
@@ -412,6 +416,12 @@
 
     Store.prototype.clearState = function () {
       this.state = {};
+      return this;
+    };
+
+    Store.prototype.resetState = function () {
+      this.buildScheme();
+      this.listener.emit('change');
       return this;
     };
 
@@ -441,6 +451,8 @@
     // you probably won't need to do. It simply **emits an event with a payload**.
     Store.prototype.dispatchAction = function (actionName, data) {
       this.listener.emit(__generateActionName(actionName), data);
+      // The cleanup_{actionName} event removes any remaining listeners after the action was fully handled
+      this.listener.emit('cleanup_' + actionName);
     };
 
     // ### Shortcuts
@@ -528,6 +540,16 @@
           }
         }
       }
+
+      // Allow only a single dispatcher
+      if (DeLorean.dispatcher != null) {
+        if (console != null) {
+          console.warn('You are attempting to create more than one dispatcher. DeLorean is intended to be used with a single dispatcher. This latest dispatcher created will overwrite any previous versions.');
+        }
+      }
+
+      // Create an internal reference to the dispathcer instance. This allows it to be found by the mixins.
+      DeLorean.dispatcher = dispatcher;
 
       return dispatcher;
     },
@@ -646,6 +668,13 @@
 
       // `getStore` is a shortcut to get the store from the state.
       getStore: function (storeName) {
+        if (console != null && typeof this.__watchStores[storeName] === 'undefined') {
+          var message;
+          message = 'Attempt to getStore ' + storeName + ' failed. ';
+          message += typeof this.stores[storeName] === 'undefined' ? 'It is not defined on the dispatcher. ' : 'It is not being watched by the component. ';
+          message += this.constructor != null && this.constructor.displayName != null ? 'Check the ' + this.constructor.displayName + ' component.' : '';
+          console.warn(message);
+        }
         return this.state.stores[storeName];
       }
     }

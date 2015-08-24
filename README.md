@@ -1,7 +1,7 @@
 # DeLorean.js
 
 [![Build Status](https://travis-ci.org/deloreanjs/delorean.svg?branch=master)](https://travis-ci.org/deloreanjs/delorean)
- [![NPM version](https://badge.fury.io/js/delorean.js.svg)](http://badge.fury.io/js/delorean.js)
+ [![NPM version](https://badge.fury.io/js/delorean.svg)](http://badge.fury.io/js/delorean)
  ![Coverage](http://progressed.io/bar/84?title=coverage)
 
 DeLorean is a tiny Flux pattern implementation.
@@ -20,10 +20,10 @@ You can learn Flux and DeLorean.js in minutes. [Read the tutorial](./docs/tutori
 
 ## Using with Frameworks
 
-  - [Try **React.js** example on JSFiddle](http://jsfiddle.net/fkadev/a2ms7rcc/)
-  - [Try **Flight.js** example on JSFiddle](http://jsfiddle.net/fkadev/1cw9Leau/)
-  - [Try **Ractive.js** example on JSFiddle](http://jsfiddle.net/PhilJ/2r1k2k90/2/)
-
+  - [Try **React.js** example on JSFiddle](http://jsfiddle.net/smadad/m2r0xo70/3/)
+  - [Try **Flight.js** example on JSFiddle](http://jsfiddle.net/smadad/hz9nahga/1/)
+  - [Try **Ractive.js** example on JSFiddle](http://jsfiddle.net/2r1k2k90/33/)
+  
 ---
 
 ## Install
@@ -62,6 +62,7 @@ var Flux = DeLorean.Flux;
 ## Overview
 
 ```javascript
+var Flux = DeLorean.Flux;
 /*
  * Stores are simple data buckets which manages data.
  */
@@ -75,10 +76,10 @@ var Store = Flux.createStore({
     'incoming-data': 'setData'
   }
 });
-var store = new Store();
+var store = Store;
 
 /*
- * Dispatchers are simple action dispatchers for stores.
+ * Dispatcher are simple action dispatchers for stores.
  * Stores handle the related action.
  */
 var Dispatcher = Flux.createDispatcher({
@@ -103,7 +104,7 @@ var Actions = {
 // The data cycle.
 store.onChange(function () {
   // End of data cycle.
-  document.getElementById('result').innerText = store.store.data;
+  document.getElementById('result').innerText = store.data;
 });
 
 document.getElementById('dataChanger').onclick = function () {
@@ -111,7 +112,7 @@ document.getElementById('dataChanger').onclick = function () {
   Actions.setData(Math.random());
 };
 ```
-[Run this example on JSFiddle](http://jsfiddle.net/fkadev/40cx3146/)
+[Run this example on JSFiddle](http://jsfiddle.net/smadad/tL4mctjd/1/)
 
 ## Docs
 
@@ -142,15 +143,17 @@ open index.html
   - Fatih Kadir Akin [@f](https://github.com/f)
   - Burak Can [@burakcan](https://github.com/burakcan)
   - Darcy Adams [@darcyadams](https://github.com/darcyadams)
-  - Tim Branyen [@tbranyen](https://github.com/tbranyen)
 
 ## Contributors
 
+  - Tom Moor [@tommoor](https://github.com/tommoor)
+  - Tim Branyen [@tbranyen](https://github.com/tbranyen)
   - Quang Van [@quangv](https://github.com/quangv)
   - James H. Edwards [@incrediblesound](https://github.com/incrediblesound)
   - Fehmi Can Sağlam [@fehmicansaglam](https://github.com/fehmicansaglam)
   - Serge van den Oever [@svdoever](https://github.com/svdoever)
   - Markus Ast [@rkusa](https://github.com/rkusa)
+  - Peter Rumenov Denev [@peterdenev](https://github.com/peterdenev)
 
 ## Contribution
 
@@ -182,3 +185,6 @@ The **flux capacitor** was the core component of Doctor Emmett Brown's **DeLorea
 
  - [http://dailyjs.com/2014/08/19/delorean-cash/](http://dailyjs.com/2014/08/19/delorean-cash/)
  - [https://reactjsnews.com/the-state-of-flux/](https://reactjsnews.com/the-state-of-flux/)
+ - [http://facebook.github.io/react/blog/2014/10/17/community-roundup-23.html](http://facebook.github.io/react/blog/2014/10/17/community-roundup-23.html)
+ - [https://scotch.io/tutorials/getting-to-know-flux-the-react-js-architecture](https://scotch.io/tutorials/getting-to-know-flux-the-react-js-architecture)
+ - [http://thewebplatform.libsyn.com/flux-application-architecture-react](http://thewebplatform.libsyn.com/flux-application-architecture-react)

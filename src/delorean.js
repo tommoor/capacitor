@@ -32,16 +32,11 @@
 
   // `__findDispatcher` is a private function for **React components**.
   function __findDispatcher(view) {
-     // Provide a useful error message if no dispatcher is found in the chain
-    if (view == null) {
-      throw 'No dispatcher found. The DeLoreanJS mixin requires a "dispatcher" property to be passed to a component, or one of it\'s ancestors.';
+     // Provide a useful error message if no dispatcher is found
+    if (DeLorean.dispatcher == null) {
+      throw 'No dispatcher found. The DeLoreanJS mixin requires a "dispatcher" has been created using Flux.createDispatcher.';
     }
-    /* `view` should be a component instance. If a component don't have
-        any dispatcher, it tries to find a dispatcher from the parents. */
-    if (!view.props.dispatcher) {
-      return __findDispatcher(view._owner);
-    }
-    return view.props.dispatcher;
+    return DeLorean.dispatcher;
   }
 
   // `__clone` creates a deep copy of an object.
@@ -100,6 +95,7 @@
       var self = this;
       // `DeLorean.EventEmitter` is `require('events').EventEmitter` by default.
       // you can change it using `DeLorean.Flux.define('EventEmitter', AnotherEventEmitter)`
+      DeLorean.EventEmitter.defaultMaxListeners = 50;
       this.listener = new DeLorean.EventEmitter();
       this.stores = stores;
 
@@ -113,7 +109,7 @@
     Dispatcher.prototype.dispatch = function () {
       var self = this, stores, deferred, args;
       args = Array.prototype.slice.call(arguments);
-      
+
       /* Stores are key-value pairs. Collect store instances into an array. */
       stores = (function () {
         var stores = [], store;
@@ -158,10 +154,16 @@
         /* `__promiseGenerator` generates a simple promise that resolves itself when
             related store is changed. */
         function __promiseGenerator(store) {
-          // `DeLorean.Promise` is `require('es6-promise').Promise` by default.
-          // you can change it using `DeLorean.Flux.define('Promise', AnotherPromise)`
+          // resolve on change
+          // reject on rollback
+          // cleanup_{actionName} will be fired after the action handler (in store.dispatchAction) to cleanup unused events
           return new DeLorean.Promise(function (resolve, reject) {
             store.listener.once('change', resolve);
+            store.listener.once('rollback', reject);
+            store.listener.once('cleanup_' + actionName, function () {
+              store.listener.removeListener('change', resolve);
+              store.listener.removeListener('rollback', reject);
+            });
           });
         }
 
@@ -450,6 +452,8 @@
     // you probably won't need to do. It simply **emits an event with a payload**.
     Store.prototype.dispatchAction = function (actionName, data) {
       this.listener.emit(__generateActionName(actionName), data);
+      // The cleanup_{actionName} event removes any remaining listeners after the action was fully handled
+      this.listener.emit('cleanup_' + actionName);
     };
 
     // ### Shortcuts
@@ -537,6 +541,16 @@
           }
         }
       }
+
+      // Allow only a single dispatcher
+      if (DeLorean.dispatcher != null) {
+        if (console != null) {
+          console.warn('You are attempting to create more than one dispatcher. DeLorean is intended to be used with a single dispatcher. This latest dispatcher created will overwrite any previous versions.');
+        }
+      }
+
+      // Create an internal reference to the dispathcer instance. This allows it to be found by the mixins.
+      DeLorean.dispatcher = dispatcher;
 
       return dispatcher;
     },
@@ -655,6 +669,13 @@
 
       // `getStore` is a shortcut to get the store from the state.
       getStore: function (storeName) {
+        if (console != null && typeof this.__watchStores[storeName] === 'undefined') {
+          var message;
+          message = 'Attempt to getStore ' + storeName + ' failed. ';
+          message += typeof this.stores[storeName] === 'undefined' ? 'It is not defined on the dispatcher. ' : 'It is not being watched by the component. ';
+          message += this.constructor != null && this.constructor.displayName != null ? 'Check the ' + this.constructor.displayName + ' component.' : '';
+          console.warn(message);
+        }
         return this.state.stores[storeName];
       }
     }
